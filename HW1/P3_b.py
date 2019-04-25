@@ -88,57 +88,6 @@ class Carwith2Trailers():
         self.time = 0.0
 
 
-    def get_inputs(self, gamma_dot):
-        """
-         - Description: find ordinary (non-extended) control inputs u
-
-         - input
-        :param gamma_dot: time derivative of the desired path
-        :type gamma_dot: 1darray (numpy)
-         - output
-        :param us: ordinary (non-extended) control inputs
-        :type us: list of floats
-        """
-        # find extended inputs vs
-        q = self.gamma # desired trajectory instead of actual trajectory
-        g_hats = []
-        g_hats.append([np.cos(q[2]), np.sin(q[2]), 0.0, -np.sin(q[3]), np.sin(q[3]) - np.cos(q[3])*np.sin(q[4])])
-        g_hats.append([0.0, 0.0, 1.0, -1.0, 0.0])
-        g_hats.append([np.sin(q[2]), -np.cos(q[2]), 0.0, -np.cos(q[3]), np.cos(q[3]) + np.sin(q[3])*np.sin(q[4])])
-        g_hats.append([0.0, 0.0, 0.0, -1.0, 1.0 + np.cos(q[4])])
-        g_hats.append([0.0, 0.0, 0.0, -np.cos(q[3]), 2*np.cos(q[3]) + np.cos(q[3])*np.cos(q[4])])
-        G_hat = np.array(g_hats).T
-        vs, _, rank, _ = np.linalg.lstsq(G_hat, gamma_dot)
-        if rank < 5:
-            print('G_hat rank is NOT maximal!')
-        # vs = np.linalg.solve(G_hat, gamma_dot)
-
-        # find coefficients etas for inputs
-        etas = np.zeros([3, 4])
-        ws = self.omegas
-        etas[1,0] = vs[0]
-        etas[2,0] = vs[1]
-        etas[1,1] = (abs(2*ws[0]*vs[2]))**(1/2)
-        etas[2,1] = etas[1,1] if vs[2] < 0 else -etas[1,1]
-        etas[1,2] = (abs(8*ws[1]**2*vs[3]))**(1/3)
-        etas[2,2] = etas[1,2] if vs[3] > 0 else -etas[1,2]
-        etas[1,3] = (abs(48*ws[2]**3*vs[4]))**(1/4)
-        etas[2,3] = etas[1,3] if vs[4] < 0 else -etas[1,3]
-
-        # find inputs us
-        us = []
-        j = self.j
-        t = self.time
-        us.append(etas[1,0] + j**(1/2)*etas[1,1]*np.sin(j*ws[0]*t) + 
-            j**(2/3)*etas[1,2]*np.sin(j*ws[1]*t) + j**(3/4)*etas[1,3]*np.sin(j*ws[2]*t)
-        )
-        us.append(etas[2,0] + j**(1/2)*etas[2,1]*np.cos(j*ws[0]*t) + 
-            j**(2/3)*etas[2,2]*np.cos(2*j*ws[1]*t) + j**(3/4)*etas[2,3]*np.cos(3*j*ws[2]*t)
-        )
-
-        return us
-
-
     def run_transformed(self, gamma, T, dt=0.01):
         """
          - Description: find ordinary (non-extended) control inputs u
@@ -236,6 +185,59 @@ class Carwith2Trailers():
         print('debug')
 
 
+    def get_inputs(self, gamma_dot):
+        """
+         - Description: find ordinary (non-extended) control inputs u
+
+         - input
+        :param gamma_dot: time derivative of the desired path
+        :type gamma_dot: 1darray (numpy)
+         - output
+        :param us: ordinary (non-extended) control inputs
+        :type us: list of floats
+        """
+        # find extended inputs vs
+        q = self.gamma # desired trajectory instead of actual trajectory
+        g_hats = []
+        g_hats.append([np.cos(q[2]), np.sin(q[2]), 0.0, -np.sin(q[3]), np.sin(q[3]) - np.cos(q[3])*np.sin(q[4])])
+        g_hats.append([0.0, 0.0, 1.0, -1.0, 0.0])
+        g_hats.append([np.sin(q[2]), -np.cos(q[2]), 0.0, -np.cos(q[3]), np.cos(q[3]) + np.sin(q[3])*np.sin(q[4])]) # g3
+        # g_hats.append([-np.sin(q[2]), np.cos(q[2]), 0.0, np.cos(q[3]), -np.cos(q[3]) - np.sin(q[3])*np.sin(q[4])]) # g3_hat
+        g_hats.append([0.0, 0.0, 0.0, -1.0, 1.0 + np.cos(q[4])])
+        g_hats.append([0.0, 0.0, 0.0, -np.cos(q[3]), 2*np.cos(q[3]) + np.cos(q[3])*np.cos(q[4])]) # g5
+        # g_hats.append([0.0, 0.0, 0.0, np.cos(q[3]), -2*np.cos(q[3]) - np.cos(q[3])*np.cos(q[4])]) # g5_hat
+        G_hat = np.array(g_hats).T
+        vs, _, rank, _ = np.linalg.lstsq(G_hat, gamma_dot)
+        if rank < 5:
+            print('G_hat rank is NOT maximal!')
+        # vs = np.linalg.solve(G_hat, gamma_dot)
+
+        # find coefficients etas for inputs
+        etas = np.zeros([3, 4])
+        ws = self.omegas
+        etas[1,0] = vs[0]
+        etas[2,0] = vs[1]
+        etas[1,1] = (abs(2*ws[0]*vs[2]))**(1/2)
+        etas[2,1] = etas[1,1] if vs[2] < 0 else -etas[1,1]
+        etas[1,2] = (abs(8*ws[1]**2*vs[3]))**(1/3)
+        etas[2,2] = etas[1,2] if vs[3] > 0 else -etas[1,2]
+        etas[1,3] = (abs(48*ws[2]**3*vs[4]))**(1/4)
+        etas[2,3] = etas[1,3] if vs[4] < 0 else -etas[1,3]
+
+        # find inputs us
+        us = []
+        j = self.j
+        t = self.time
+        us.append(etas[1,0] + j**(1/2)*etas[1,1]*np.sin(j*ws[0]*t) + 
+            j**(2/3)*etas[1,2]*np.sin(j*ws[1]*t) + j**(3/4)*etas[1,3]*np.sin(j*ws[2]*t)
+        )
+        us.append(etas[2,0] + j**(1/2)*etas[2,1]*np.cos(j*ws[0]*t) + 
+            j**(2/3)*etas[2,2]*np.cos(2*j*ws[1]*t) + j**(3/4)*etas[2,3]*np.cos(3*j*ws[2]*t)
+        )
+
+        return us
+
+
     def step(self, gamma_dot, us=[0.0, 0.0], dt=0.01, verbose=False):
         """
          - Description: progress the system by dt seconds
@@ -248,7 +250,7 @@ class Carwith2Trailers():
         """
         q = self.q
         g1 = np.array([np.cos(q[2]), np.sin(q[2]), 0.0, -np.sin(q[3]), np.sin(q[3]) - np.cos(q[3])*np.sin(q[4])])
-        g2 = np.array([0.0, 0.0, 1.0, 1.0, 0.0])
+        g2 = np.array([0.0, 0.0, 1.0, -1.0, 0.0])
         qdot = g1*us[0] + g2*us[1]
         self.q += qdot*dt
         self.gamma += gamma_dot*dt
@@ -292,13 +294,13 @@ def main_transformed_coords():
         print(agent.q)
 
 
-def main_standard_coords():
+def main_standard_coords(j=500):
     q0 = [0.0, 1.0, 0.0, 0.0, 0.0]
     qf = [0.0]*5
     T = 100.0
     gamma_dot = (np.array(qf) - np.array(q0))/T
 
-    agent = Carwith2Trailers(q=q0, j=500)
+    agent = Carwith2Trailers(q=q0, j=j)
 
     ts, qs = [], []
     tick = 0
@@ -327,6 +329,7 @@ def main_standard_coords():
 
 
 if __name__ == '__main__':
-    j = main_standard_coords()
+    j = 500
+    main_standard_coords(j)
     plot_graph('P3_b_j%s.pickle'%(str(j)), 'phi1')
     # main_transformed_coords()
