@@ -144,7 +144,7 @@ hold on;
 plot(t_history, x_history(:,5));
 xlabel('time (sec)');
 ylabel('\phi(t), \theta(t) (rad)');
-legend('\phi', '\theta');
+legend('roll', 'pitch');
 
 % control history
 figure('name', 'u1');
@@ -170,15 +170,15 @@ plot(t_history, nu_hat_history(:,1));
 hold on;
 plot(t_history, U_history(:,5), '--k');
 xlabel('time (sec)');
-ylabel('\nu_{1}(t), u_{5}(t)');
-legend('\nu_{1}', 'u_{5}');
+ylabel('$\hat{\nu_{1}}(t), u_{5}(t)$', 'interpreter', 'latex');
+legend('desired', 'actual');
 figure('name', 'nu2');
 plot(t_history, nu_hat_history(:,2));
 hold on;
 plot(t_history, U_history(:,6), '--k');
 xlabel('time (sec)');
-ylabel('\nu_{2}(t), u_{6}(t)');
-legend('\nu_{2}', 'u_{6}');
+ylabel('$\hat{\nu_{2}}(t), u_{6}(t)$', 'interpreter', 'latex');
+legend('desired', 'actual');
 
 % trajectory
 figure('name', 'trajectory');

@@ -105,18 +105,18 @@ close all;
 % state
 figure('name', 'y');
 plot(t_history, x_history(:,2));
-xlabel('time (sec)');
-ylabel('y(t) (meter)');
+xlabel('time');
+ylabel('y(t)');
 % control
 figure('name', 'u');
 plot(t_history, u_history);
-xlabel('time (sec)');
+xlabel('time');
 ylabel('u(t)');
 % trajectory
 figure('name', 'trajectory');
 plot(x_history(:,1), x_history(:,2));
-xlabel('x(t) (meter)');
-ylabel('y(t) (meter)');
+xlabel('x');
+ylabel('y');
 axis equal;
 
 %% functions
