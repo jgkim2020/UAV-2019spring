@@ -10,7 +10,7 @@ G_inv = [0, 0, 1, 0, 0, 0;
     0, 1, 0, 0, 0, 0];
 
 % parameters (from Lee et. al, IJCAS 2009)
-k = [1, 1, 0.7, 5, 5, 10]; % error gain
+k = [0.01, 0.01, 1, 5, 5, 10]; % error gain
 c = [5, 5, 5, 1, 1, 1]; % sliding mode gain
 k_phi = 5; k_theta = 5;
 
@@ -28,29 +28,52 @@ err = [0, 0, 0, 0, 0, 0].'; % error (x -x_d)
 err_dot = [0, 0, 0, 0, 0, 0].';
 err_x_ = 0; err_y_ = 0; % yaw corrected (body centric) error
 nu_hat = [0, 0, 0, 0, 0, 0].';
+drag = [0, 0, 0, 0, 0, 0].';
+drag_hat = [0, 0, 0, 0, 0, 0].';
 
 % save for later
-t_save = [];
-x_save = [];
-x_d_save = [];
-U_save = [];
-nu_hat_save = [];
+t_history = [];
+x_history = [];
+x_d_history = [];
+U_history = [];
+nu_hat_history = [];
+drag_history = [];
+drag_hat_history = [];
+dragcoeff_hat_history = [];
 
 %% run
 
-dt = 0.001;
-for t = 0:dt:8
+dt = 0.01;
+for t = 0:dt:16
     % control law
-    U = G_inv*(-f_x + nu_hat + x_d_2dot - diag(k)*err_dot - diag(c)*sign(s));
+    G = [0, 0, 0, 0, 1, 0;
+        0, 0, 0, 0, 0, 1;
+        0, 0, 0, 0, 0, 0;
+        0, 1, 0, 0, 0, 0;
+        0, 0, 1, 0, 0, 0;
+        0, 0, 0, 1, 0, 0];
+    G(1,1) = cos(x(4))*sin(x(5))*cos(x(6)) + sin(x(4))*sin(x(6));
+    G(2,1) = cos(x(4))*sin(x(5))*sin(x(6)) - sin(x(4))*cos(x(6));
+    G(3,1) = cos(x(4))*cos(x(5));
+%     U = G_inv*(-f_x + nu_hat - drag_hat + x_d_2dot - diag(k)*err_dot - diag(c)*s);
+    U = G\(-f_x + nu_hat - drag_hat + x_d_2dot - diag(k)*err_dot - diag(c)*s);
+    U(1) = max(0, min(U(1), 25));
+    U(2) = max(-50, min(U(2), 50));
+    U(3) = max(-50, min(U(3), 50));
+    U(4) = max(-50, min(U(4), 50));
     % estimator update law
-    nu_hat_dot = -[err_dot(1) + k(1)*err(1), err_dot(2) + k(2)*err(2), 0, 0, 0, 0].';
+    nu_hat_dot = -1*[err_dot(1) + k(1)*err(1), err_dot(2) + k(2)*err(2), 0, 0, 0, 0].';
+    drag_hat_dot = 1*[err_dot + diag(k)*err];
     
     %%% save for later
-    t_save = [t_save; t];
-    x_save = [x_save; x.'];
-    x_d_save = [x_d_save; x_d.'];
-    U_save = [U_save; U.'];
-    nu_hat_save = [nu_hat_save; nu_hat.'];
+    t_history = [t_history; t];
+    x_history = [x_history; x.'];
+    x_d_history = [x_d_history; x_d.'];
+    U_history = [U_history; U.'];
+    nu_hat_history = [nu_hat_history; nu_hat.'];
+    drag_history = [drag_history; drag.'];
+    drag_hat_history = [drag_hat_history; drag_hat.'];
+    dragcoeff_hat_history = [dragcoeff_hat_history; (drag_hat./x_dot).'];
     
     %%% run system for dt and update state
     x_2dot(1) = U(1)*(cos(x(4))*sin(x(5))*cos(x(6)) + sin(x(4))*sin(x(6)));
@@ -59,10 +82,14 @@ for t = 0:dt:8
     x_2dot(4) = U(2);
     x_2dot(5) = U(3);
     x_2dot(6) = U(4);
+    drag(1:3) = -0.02*x_dot(1:3);
+    drag(4:6) = -0.03*x_dot(4:6);
+    x_2dot = x_2dot + drag;
     x_dot_old = x_dot; % t
     x_dot = x_dot + x_2dot*dt; % t + dt
     x = x + (x_dot_old + x_dot)/2*dt; % t + dt
     nu_hat = nu_hat + nu_hat_dot*dt; % t + dt
+    drag_hat = drag_hat + drag_hat_dot*dt; % t + dt
     
     %%% update other variables
     err_old = err; % t
@@ -85,46 +112,135 @@ for t = 0:dt:8
     phi_d_2dot = (phi_d_dot - phi_d_dot_old)/dt; % t + dt
     theta_d_2dot = (theta_d_dot - theta_d_dot_old)/dt; % t + dt
     % desired trajectory @ t + dt
-    x_d = [sin(pi/2*(t+dt)), cos(pi/2*(t+dt)), (t+dt)/2, phi_d, theta_d, pi/2*(t+dt)].';
-    x_d_dot = [pi/2*cos(pi/2*(t+dt)), -pi/2*sin(pi/2*(t+dt)), 1/2, phi_d_dot, theta_d_dot, pi/2].';
-    x_d_2dot = [-(pi/2)^2*sin(pi/2*(t+dt)), -(pi/2)^2*cos(pi/2*(t+dt)), 0, phi_d_2dot, theta_d_2dot, 0].';
+    x_d = [sin(pi/2*(t+dt)), cos(pi/2*(t+dt)), (t+dt)/2, phi_d, theta_d, -pi/2*(t+dt)].';
+%     x_d_dot = [pi/2*cos(pi/2*(t+dt)), -pi/2*sin(pi/2*(t+dt)), 1/2, phi_d_dot, theta_d_dot, pi/2].';
+    phi_d_2dot_clip = max(-20, min(phi_d_2dot, 20));
+    theta_d_2dot_clip = max(-20, min(theta_d_2dot, 20));
+    x_d_2dot = [-(pi/2)^2*sin(pi/2*(t+dt)), -(pi/2)^2*cos(pi/2*(t+dt)), 0, phi_d_2dot_clip, theta_d_2dot_clip, 0].';
     % error @ t + dt
     err = x - x_d;
     err_dot = (err - err_old)/dt;
     % sliding surface @ t + dt
+    err_dot_clip = err_dot;
+    err_dot_clip(1) = max(-10, min(err_dot(1), 10));
+    err_dot_clip(2) = max(-10, min(err_dot(2), 10));
+    err_dot_clip(3) = max(-10, min(err_dot(3), 10));
+    err_dot_clip(4) = max(-20, min(err_dot(4), 20));
+    err_dot_clip(5) = max(-20, min(err_dot(5), 20));
+    err_dot_clip(6) = max(-20, min(err_dot(6), 20));
+    err_dot = err_dot_clip;
     s = err_dot + diag(k)*err;
-    
 end
 
 %% plot
 close all;
+% state
 figure('name', 'x, y');
-plot(t_save, x_save(:,1));
+plot(t_history, x_history(:,1));
 hold on;
-plot(t_save, x_save(:,2));
+plot(t_history, x_history(:,2));
 xlabel('time (sec)');
 ylabel('x(t), y(t) (meter)');
 legend('x', 'y');
 figure('name', 'z');
-plot(t_save, x_save(:,3));
+plot(t_history, x_history(:,3));
 xlabel('time (sec)');
 ylabel('z(t) (meter)');
 figure('name', 'yaw angle');
-plot(t_save, x_save(:,6));
+plot(t_history, x_history(:,6));
 xlabel('time (sec)');
 ylabel('\psi(t) (rad)');
 figure('name', 'roll/pitch angle');
-plot(t_save, x_save(:,4));
+plot(t_history, x_history(:,4));
 hold on;
-plot(t_save, x_save(:,5));
+plot(t_history, x_history(:,5));
 xlabel('time (sec)');
 ylabel('\phi(t), \theta(t) (rad)');
 legend('\phi', '\theta');
 
-figure('name', 'trajectory')
-plot3(x_save(:,1), x_save(:,2), x_save(:,3));
+% control history
+figure('name', 'u1');
+plot(t_history, U_history(:,1));
+xlabel('time (sec)');
+ylabel('u_{1}');
+figure('name', 'u2');
+plot(t_history, U_history(:,2));
+xlabel('time (sec)');
+ylabel('u_{2}');
+figure('name', 'u3');
+plot(t_history, U_history(:,3));
+xlabel('time (sec)');
+ylabel('u_{3}');
+figure('name', 'u4');
+plot(t_history, U_history(:,4));
+xlabel('time (sec)');
+ylabel('u_{4}');
+
+% estimator
+figure('name', 'nu1');
+plot(t_history, nu_hat_history(:,1));
 hold on;
-plot3(x_d_save(:,1), x_d_save(:,2), x_d_save(:,3), '--k');
+plot(t_history, U_history(:,5), '--k');
+xlabel('time (sec)');
+ylabel('\nu_{1}(t), u_{5}(t)');
+legend('\nu_{1}', 'u_{5}');
+figure('name', 'nu2');
+plot(t_history, nu_hat_history(:,2));
+hold on;
+plot(t_history, U_history(:,6), '--k');
+xlabel('time (sec)');
+ylabel('\nu_{2}(t), u_{6}(t)');
+legend('\nu_{2}', 'u_{6}');
+
+figure('name', 'x drag');
+plot(t_history, drag_hat_history(:,1));
+hold on;
+plot(t_history, drag_history(:,1), '--k');
+xlabel('time (sec)');
+ylabel('$d_{x}\dot{x}$', 'interpreter', 'latex');
+legend('estimated', 'actual');
+figure('name', 'y drag');
+plot(t_history, drag_hat_history(:,2));
+hold on;
+plot(t_history, drag_history(:,2), '--k');
+xlabel('time (sec)');
+ylabel('$d_{y}\dot{y}$', 'interpreter', 'latex');
+legend('estimated', 'actual');
+figure('name', 'z drag');
+plot(t_history, drag_hat_history(:,3));
+hold on;
+plot(t_history, drag_history(:,3), '--k');
+xlabel('time (sec)');
+ylabel('$d_{z}\dot{z}$', 'interpreter', 'latex');
+legend('estimated', 'actual');
+
+figure('name', 'roll drag');
+plot(t_history, drag_hat_history(:,4));
+hold on;
+plot(t_history, drag_history(:,4), '--k');
+xlabel('time (sec)');
+ylabel('$d_{\phi}\dot{\phi}$', 'interpreter', 'latex');
+legend('estimated', 'actual');
+figure('name', 'pitch drag');
+plot(t_history, drag_hat_history(:,5));
+hold on;
+plot(t_history, drag_history(:,5), '--k');
+xlabel('time (sec)');
+ylabel('$d_{\theta}\dot{\theta}$', 'interpreter', 'latex');
+legend('estimated', 'actual');
+figure('name', 'yaw drag');
+plot(t_history, drag_hat_history(:,6));
+hold on;
+plot(t_history, drag_history(:,6), '--k');
+xlabel('time (sec)');
+ylabel('$d_{\psi}\dot{\psi}$', 'interpreter', 'latex');
+legend('estimated', 'actual');
+
+% trajectory
+figure('name', 'trajectory');
+plot3(x_history(:,1), x_history(:,2), x_history(:,3));
+hold on;
+plot3(x_d_history(:,1), x_d_history(:,2), x_d_history(:,3), '--k');
 xlabel('x (meter)');
 ylabel('y (meter)');
 zlabel('z (meter)');
