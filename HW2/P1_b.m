@@ -134,6 +134,7 @@ end
 
 %% plot
 close all;
+
 % state
 figure('name', 'x, y');
 plot(t_history, x_history(:,1));
