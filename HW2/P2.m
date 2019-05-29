@@ -4,9 +4,9 @@ close all; clear all; clc;
 global Ts
 Ts = 0.1;
 N = 20;
-umax = 0.5;
-max_iter = 10; % maximum iteration
-alpha = 1e-1; % step size
+umax = 0.5;max_
+max_iter = 100; % maximum iteration
+alpha = 1e-2; % step size
 epsilon = 1e-6; % finite difference step size
 
 % variables
@@ -33,9 +33,9 @@ for t = 0:dt:15
     %%% run MPC every Ts
     if t_MPC <= t
         x0 = x;
-        max_dHdu = Inf;
+        max_delta_u = Inf;
         iter_count = 0;
-        while max_dHdu > 0.01
+        while max_delta_u > 0.001
             if iter_count >= max_iter
                 break;
             end
@@ -73,16 +73,17 @@ for t = 0:dt:15
                 dHdu_horizon(k) = (Hk_du - Hk)/epsilon;
             end
             % update u
+            u_horizon_old = u_horizon;
             u_horizon = u_horizon - alpha*dHdu_horizon;
             u_horizon = max(-umax, min(u_horizon, umax));
             
-            max_dHdu = max(abs(dHdu_horizon));
+            max_delta_u = max(abs(u_horizon - u_horizon_old));
             iter_count = iter_count + 1;
         end
         
         u = u_horizon(1);
-%         u_horizon(1:N-1) = u_horizon(2:N); % shift control horizon
-        u_horizon = zeros(N,1);
+%         u_horizon(1:N-1) = u_horizon(2:N); % shift control horizon (for later use)
+        u_horizon = zeros(N,1); % reset u candidate
         u_horizon(N) = 0;
         t_MPC = t_MPC + Ts; % schedule next MPC
     end
