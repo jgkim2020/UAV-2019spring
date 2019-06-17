@@ -1,0 +1,3 @@
+[submodule "HW3/hungarian"]
+	path = HW3/hungarian
+	url = https://github.com/ondrejdee/hungarian.git
