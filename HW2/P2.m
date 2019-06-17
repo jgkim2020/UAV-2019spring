@@ -4,7 +4,7 @@ close all; clear all; clc;
 global Ts
 Ts = 0.1;
 N = 20;
-umax = 0.5;max_
+umax = 0.5;
 max_iter = 100; % maximum iteration
 alpha = 1e-2; % step size
 epsilon = 1e-6; % finite difference step size
